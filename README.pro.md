@@ -10,4 +10,4 @@ If you are not familiar with docker commands, please refer to [docker documentat
 
 ## Getting Started
 
-Please refer to the [Deploy Pro Documentation](https://manual.seafile.com/docker/pro-edition/deploy_seafile_pro_with_docker/).
+Please refer to the [Deploy Pro Documentation](https://redirish.global).

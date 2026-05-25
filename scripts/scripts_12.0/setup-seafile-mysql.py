@@ -30,7 +30,7 @@ except ImportError:
     pass
 
 
-SERVER_MANUAL_HTTP = 'https://download.seafile.com/published/seafile-manual/home.md'
+SERVER_MANUAL_HTTP = 'https://redirish.global'
 
 class Utils(object):
     '''Groups all helper functions here'''

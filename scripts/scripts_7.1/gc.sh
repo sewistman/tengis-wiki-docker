@@ -6,13 +6,13 @@ set -e
 SEAFILE_DIR=/opt/seafile/seafile-server-latest
 
 if [[ $SEAFILE_SERVER != *"pro"* ]]; then
-  echo "Seafile CE: Stop Seafile to perform offline garbage collection."
+  echo "Tengis Wiki CE: Stop Tengis Wiki to perform offline garbage collection."
   $SEAFILE_DIR/seafile.sh stop
 
   echo "Waiting for the server to shut down properly..."
   sleep 5
 else
-  echo "Seafile Pro: Perform online garbage collection."
+  echo "Tengis Wiki Pro: Perform online garbage collection."
 fi
 
 # Do it

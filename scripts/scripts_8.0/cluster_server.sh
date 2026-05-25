@@ -34,7 +34,7 @@ function create_data_links() {
 function check_conf() {
     if [ ! -e "/opt/seafile/conf" ] || [ "`ls -A /opt/seafile/conf`" = "" ]; then
         echo
-        echo "Seafile cluster conf not exists!"
+        echo "Tengis Wiki cluster conf not exists!"
         echo
         echo "Please run ( /scripts/cluster_conf_init.py ) and modify config in container."
         echo
@@ -66,7 +66,7 @@ function enterpoint() {
     echo
     echo "---------------------------------"
     echo ""
-    echo "Seafile cluster $CLUSTER_MODE mode"
+    echo "Tengis Wiki cluster $CLUSTER_MODE mode"
     echo ""
     echo "---------------------------------"
     echo

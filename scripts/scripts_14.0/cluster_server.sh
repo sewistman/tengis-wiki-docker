@@ -37,7 +37,7 @@ function check_conf() {
         exit 0
     elif [ ! -e "/opt/seafile/conf" ] || [ "`ls -A /opt/seafile/conf`" = "" ]; then
         echo
-        echo "Seafile cluster conf not exists!"
+        echo "Tengis Wiki cluster conf not exists!"
         echo
         echo "You should set CLUSTER_INIT_MODE to true in .env at first time running the image."
         echo 
@@ -71,7 +71,7 @@ function enterpoint() {
     echo
     echo "---------------------------------"
     echo ""
-    echo "Seafile cluster $CLUSTER_MODE mode"
+    echo "Tengis Wiki cluster $CLUSTER_MODE mode"
     echo ""
     echo "---------------------------------"
     echo

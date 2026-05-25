@@ -200,7 +200,7 @@ function build() {
 }
 
 echo ''
-echo "Info: Seafile Version [ ${tag} ]"
+echo "Info: Tengis Wiki Version [ ${tag} ]"
 echo ''
 
 install_dependencies
