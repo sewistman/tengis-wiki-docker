@@ -99,3 +99,20 @@ These rules apply to all `Dockerfile`, `docker-compose.yml`, and related config 
 - Never modify CSS class names.
 - Only change visible UI strings, page titles, copyright notices, color values, external seafile.com/seafileltd.com URLs, and Docker naming as described above.
 - When in doubt about whether something is "user-facing" or "naming" vs "internal config", do not change it and ask first.
+
+## docker.seafile.top Registry — NEVER TOUCH
+
+The hostname `docker.seafile.top` is a third-party mirror registry, not a Seafile brand
+identifier. It is not used in the Tengis Wiki deployment and is intentionally preserved in
+scripts where it appears (e.g. `image/pro_seafile_13.0/docker-build-push.sh`). Do not
+replace it with `https://redirish.global` or any other value. It is not covered by the
+External URLs replacement rule above, which applies only to `seafile.com`, `seafileltd.com`,
+and their listed subdomains.
+
+## Before Making Any Changes — Read PATHS.md First
+
+`PATHS.md` in the root of this repo contains the full categorized map of every file
+audited for branding: which files were changed, which must never be touched, and the
+reason for each classification. Always read it before making any branding edits to avoid
+modifying internal paths, env var names, binary names, nginx identifiers, or volume paths
+that must remain unchanged.
