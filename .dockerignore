@@ -1,8 +1,44 @@
-*~
-*#
-*.swp
-.DS_Store
-*.pyc
+# Exclude the docker repo itself — the Dockerfile is loaded via -f, not from context
+tengis-wiki-docker
 
-shared/*
-.snapshot/*
+# Exclude git history
+tengis-wiki-fr/.git
+
+# Exclude large directories not needed for the overlay
+tengis-wiki-fr/frontend
+tengis-wiki-fr/thirdpart
+tengis-wiki-fr/static
+tengis-wiki-fr/tests
+tengis-wiki-fr/scripts
+tengis-wiki-fr/sql
+tengis-wiki-fr/tools
+tengis-wiki-fr/bin
+tengis-wiki-fr/fabfile
+
+# Exclude Python app source — re-include only the two template dirs
+tengis-wiki-fr/seahub
+!tengis-wiki-fr/seahub/templates
+!tengis-wiki-fr/seahub/help
+
+# Exclude media in bulk — re-include only the three overlay subdirs
+# (keeps out media/js at 11M, media/office-template, media/sdoc-editor, etc.)
+tengis-wiki-fr/media
+!tengis-wiki-fr/media/css
+!tengis-wiki-fr/media/img
+!tengis-wiki-fr/media/favicons
+
+# Exclude repo-root files that have no role in the overlay
+tengis-wiki-fr/CLAUDE.md
+tengis-wiki-fr/PATHS.md
+tengis-wiki-fr/HACKING
+tengis-wiki-fr/CONTRIBUTORS
+tengis-wiki-fr/Makefile
+tengis-wiki-fr/pylintrc
+tengis-wiki-fr/pylintrc.template
+tengis-wiki-fr/pytest.ini
+tengis-wiki-fr/*.py
+tengis-wiki-fr/*.sh
+tengis-wiki-fr/*.sh.template
+tengis-wiki-fr/*.txt
+tengis-wiki-fr/*.json
+tengis-wiki-fr/*.markdown
