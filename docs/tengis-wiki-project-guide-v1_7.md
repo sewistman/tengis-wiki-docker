@@ -1,5 +1,5 @@
 # Tengis Wiki Rebranding Guide
-**Version 1.6 — May 2026**
+**Version 1.7 — May 2026**
 **Based on live session: sewistman / akinkarakaya**
 
 ---
@@ -1315,6 +1315,7 @@ Last updated: v1.6 (May 2026). All B.1 items from v1.3 are now complete. B.2 ref
 
 #### Housekeeping (quick wins)
 
+- [ ] **Fix hardcoded orange color values in React source** — `#ed7109` and `rgba(255,128,0,...)` are baked into the compiled React bundles and are not overridden by `seafile-ui.css`. Full investigation, affected file list, and step-by-step fix plan in **Appendix G**. Requires React source edit + `npm run build` + `collectstatic` + image rebuild.
 - [ ] **Set Site Title via admin panel** — `http://192.168.2.111/sys/settings/` → change "Site Title" to `Tengis Wiki`. Takes 30 seconds. Only needed if not already done — verify by checking the browser tab when logged in.
 - [ ] **Remove old image from VM** — `docker image rm tengis/tengis-wiki:13.0.21`. Frees 2.39 GB. Safe to do any time; the active image is `13.0.21-r2` and the rollback target is documented in the build plan v1.6 §9.5.
 - [ ] **Delete obsolete documentation files from Mac** — 11 predecessor files listed in the build plan v1.6 §13 changelog (build-plan v1.0–v1.5, frontend-build v1.0, project-guide v1.3–v1.4, deployment-session, rebranding-guide).
@@ -1381,6 +1382,7 @@ Last updated: v1.6 (May 2026). All B.1 items from v1.3 are now complete. B.2 ref
 | v1.4 | May 2026 | Added repo visibility history note (§1.5); added §5.0.5 VM resource upgrade with LVM disk extension recipe; added Appendix F — pre-custom-image `seafile-server.yml` snapshot, extended `.env` reference, plus two operational techniques (`docker compose config` validation, container path discovery). Content preserved before deletion of the separate 25 May 2026 deployment session log. |
 | v1.5 | May 2026 | Extended Appendix A with operational knowledge extracted from the production nexus2.redirish.dev deployment (stock Seafile 13 + SeaDoc 2.0.9 behind mailcow nginx): A.5 SeaDoc reverse-proxy routing requirements, A.6 SeaDoc operational reference (log file inventory, verification commands, JWT auth), A.7 known SeaDoc issues (markdown-import false error, wiki-publish 400, intermittent JWT unauthorized). All content generalized so it applies to Tengis Wiki when SeaDoc is eventually enabled. |
 | v1.6 | May 2026 | Appendix B fully rewritten — all B.1 items marked complete (the entire build, deploy, and documentation sprint is done), B.2 expanded into a structured next-steps checklist covering both the Tengis Wiki VM and the nexus2 production deployment with every outstanding item tracked to the right appendix section. |
+| v1.7 | May 2026 | Added Appendix G — Color Token Investigation. Live investigation confirmed that `seafile-ui.css` CSS variable overrides do not reach hardcoded hex/rgb values inside the React compiled bundles in `media/assets/`. Root cause, affected elements, fix approach (Option A — patch React source), and full step-by-step execution plan documented. Appendix B.2 updated to reference Appendix G. |
 
 ---
 
@@ -2302,3 +2304,209 @@ The same technique works for any other branding asset (`favicon.png`, `seafile-u
 ---
 
 *End of Appendix F.*
+
+---
+
+## APPENDIX G — Color Token Investigation
+
+**Investigation date:** 30 May 2026
+**Status:** Root cause confirmed. Fix approach chosen: Option A (patch React source).
+**Next action:** Execute the fix plan in §G.4.
+
+---
+
+### G.1 The Problem
+
+After deploying `tengis/tengis-wiki:13.0.21-r2`, brand colors were partially applied:
+
+| Element | Status |
+|---|---|
+| Login page background, Django-rendered templates | ✅ Tengis Blue `#4A4EC7` |
+| Logos, favicons | ✅ Correct |
+| Active tab underline indicator in file manager | ❌ Still orange `#ed7109` |
+| Edit button focus ring | ❌ Still orange `rgba(255,128,0,.25)` |
+| Various wiki, sdoc, shared-view UI elements | ❌ Still orange in 37 CSS files |
+
+The `--bs-primary-rgb` fix in `seafile-ui.css` applied correctly to Django-rendered templates but had no effect on the React UI.
+
+---
+
+### G.2 Investigation Commands and Results
+
+**Step 1 — Confirm `seafile-ui.css` has the correct value:**
+
+```bash
+docker exec tengis-wiki grep "bs-primary-rgb" \
+  /opt/seafile/seafile-server-13.0.21/seahub/media/css/seafile-ui.css
+```
+
+Result: `--bs-primary-rgb:74,78,199` confirmed present. Our fix landed correctly.
+
+**Step 2 — Check if base image ships `media/assets/` pre-built:**
+
+```bash
+docker run --rm seafileltd/seafile-mc:13.0-latest \
+  ls /opt/seafile/seafile-server-13.0.21/seahub/media/assets/ 2>/dev/null | head -5
+```
+
+Result: No output. **Base image ships without `media/assets/`.** Our `collectstatic` genuinely built it — this is not a "snapshot of pre-existing state" issue.
+
+**Step 3 — Check if orange value exists in compiled React bundles:**
+
+```bash
+docker exec tengis-wiki grep -rl "255,128,0" \
+  /opt/seafile/seafile-server-13.0.21/seahub/media/assets/
+```
+
+Result: **37 CSS files** in `media/assets/frontend/static/css/` contain `255,128,0`.
+
+**Step 4 — Inspect the actual context of the match:**
+
+```bash
+docker exec tengis-wiki grep -o ".\{30\}255,128,0.\{30\}" \
+  /opt/seafile/seafile-server-13.0.21/seahub/media/assets/frontend/static/css/commons.e80a7295.css | head -3
+```
+
+Result:
+```
+box-shadow:0 0 0 2px rgba(255,128,0,.25)}.doc-ops #op-edit
+```
+
+And from the full file content, also confirmed:
+```css
+.nav-indicator-container:before { background: #ed7109; }
+```
+
+---
+
+### G.3 Root Cause
+
+The React source code has two types of color references:
+
+**Type 1 — CSS variable references (correctly overridden by `seafile-ui.css`):**
+```css
+color: var(--bs-primary);
+background: var(--bs-primary-rgb);
+```
+These respond to the `:root` variable definitions in `seafile-ui.css`. Our fix works for these.
+
+**Type 2 — Hardcoded hex/rgb literals (NOT overridden by `seafile-ui.css`):**
+```css
+background: #ed7109;
+box-shadow: 0 0 0 2px rgba(255,128,0,.25);
+```
+These were written directly into the React component stylesheets as literal values. Webpack compiles them verbatim into the CSS bundles in `media/assets/`. The `:root` CSS variable override in `seafile-ui.css` has zero effect on literal values — CSS variable scoping does not work in reverse.
+
+**Why `seafile-ui.css` worked for some elements but not others:** Django-rendered templates (login page, header) load `seafile-ui.css` which sets the `:root` variables. React components that reference `var(--bs-primary)` pick up those variables at runtime. But React components that have hardcoded `#ed7109` or `rgba(255,128,0,...)` ignore the variable entirely.
+
+---
+
+### G.4 Fix Plan — Option A (Patch React Source)
+
+The fix must happen in the React source, before `npm run build`. The compiled output is what gets copied into `media/assets/` by `collectstatic`.
+
+#### G.4.1 Find all hardcoded orange occurrences in the source
+
+On the VM, in the `tengis-wiki-fr` repo:
+
+```bash
+cd ~/tengiswiki/tengis-wiki-fr/frontend/src
+
+grep -rl "#ed7109" . | sort
+grep -rl "255,128,0" . | sort
+grep -rl "rgba(255, 128, 0" . | sort
+```
+
+Record every file returned. These are the files that need editing.
+
+#### G.4.2 Replace the values
+
+For each file found, replace:
+
+| Find | Replace with | Usage |
+|---|---|---|
+| `#ed7109` | `#4A4EC7` | Solid color elements (tab indicator, highlights) |
+| `rgba(255,128,0,` | `rgba(74,78,199,` | Transparent/alpha variants (focus rings, shadows) |
+| `rgba(255, 128, 0,` | `rgba(74, 78, 199,` | Same with spaces |
+
+Use `sed` for efficiency:
+
+```bash
+cd ~/tengiswiki/tengis-wiki-fr/frontend/src
+
+grep -rl "#ed7109" . | xargs sed -i 's/#ed7109/#4A4EC7/g'
+grep -rl "255,128,0" . | xargs sed -i 's/255,128,0/74,78,199/g'
+```
+
+Verify the replacements:
+
+```bash
+grep -r "#ed7109" . | wc -l
+grep -r "255,128,0" . | wc -l
+```
+
+Both should return 0.
+
+#### G.4.3 Rebuild
+
+Follow the standard Option J rebuild process — build plan v1.6 Phases 1–7:
+
+```bash
+cd ~/tengiswiki/tengis-wiki-fr/frontend
+NODE_OPTIONS=--max-old-space-size=4096 npm run build
+```
+
+Then collectstatic (Phase 2–3), Dockerfile update if needed (Phase 4), docker build (Phase 5), redeploy (Phase 6).
+
+Tag the new image as `tengis/tengis-wiki:13.0.21-r3`.
+
+#### G.4.4 Verify the fix
+
+After redeployment, confirm the orange is gone from the compiled bundles:
+
+```bash
+docker exec tengis-wiki grep -rl "255,128,0" \
+  /opt/seafile/seafile-server-13.0.21/seahub/media/assets/
+```
+
+Expected: no output (zero files).
+
+Then browser-check the two known orange elements:
+- Active tab underline in the file manager navigation
+- Edit button focus ring in document viewer
+
+#### G.4.5 Commit
+
+```bash
+cd ~/tengiswiki/tengis-wiki-fr
+git add frontend/src/
+git commit -m "rebrand: replace hardcoded orange color literals with Tengis Blue
+
+Replace #ed7109 → #4A4EC7 and rgba(255,128,0,...) → rgba(74,78,199,...)
+in React source stylesheets. These values were not overridden by the
+--bs-primary-rgb variable in seafile-ui.css because they are hardcoded
+literals, not CSS variable references.
+
+Requires npm run build + collectstatic + image rebuild (13.0.21-r3)."
+git push origin master
+```
+
+---
+
+### G.5 Known Scope
+
+The 37 files containing `255,128,0` in `media/assets/` are all compiled output — editing them directly is pointless as they get overwritten on every `collectstatic` run. Only the React source files in `frontend/src/` matter.
+
+The `#ed7109` value also appears in the compiled bundle as:
+- Active nav tab underline: `.nav-indicator-container:before { background: #ed7109 }`
+- Possibly other accent elements — the full list will be revealed by G.4.1's grep
+
+After this fix, the only remaining color-related task is verifying that no other Seafile orange hex values (`#ff8000`, `#f60`, `#ff6600`) exist in the source. Add those to the grep in G.4.1:
+
+```bash
+grep -rl "#ff8000\|#f60\b\|#ff6600\|#ed7109\|255,128,0" . | sort
+```
+
+---
+
+*End of Appendix G.*
