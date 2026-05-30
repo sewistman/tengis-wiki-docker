@@ -1,5 +1,5 @@
 # Tengis Wiki Rebranding Guide
-**Version 1.5 — May 2026**
+**Version 1.6 — May 2026**
 **Based on live session: sewistman / akinkarakaya**
 
 ---
@@ -1285,29 +1285,86 @@ Unauthorized: /api/v2.1/seadoc/participants/<uuid>/
 
 ## APPENDIX B — Pending Work Tracker
 
-Use this as a checklist for the next session.
+Last updated: v1.6 (May 2026). All B.1 items from v1.3 are now complete. B.2 reflects the current state after the full build, deploy, and documentation sprint.
 
-### B.1 Immediate (Next Session)
+---
 
-- [ ] Fix `--bs-primary-rgb: 255,128,0` → `74,78,199` in `media/css/seafile-ui.css`
-- [ ] Edit `info.js` line 110: `'Community Edition'` → `'Tengis Wiki'`
-- [ ] Edit `info.js` line 111: URL → `https://redirish.global`, text → `'Tengis Wiki'`
-- [ ] Run `npm install` in `frontend/` on VM
-- [ ] Run `npm run build` in `frontend/` on VM
-- [ ] Add `frontend/build/` COPY line to Dockerfile
-- [ ] Update `.dockerignore` for frontend build
-- [ ] Rebuild image: `docker build ... -t tengis/tengis-wiki:13.0.21-r2`
-- [ ] Redeploy: `docker compose down && docker compose up -d`
-- [ ] Fix Site Title via admin panel at `http://192.168.2.111/sys/settings/`
-- [ ] Verify all fixes in browser
+### B.1 Completed (as of v1.6)
 
-### B.2 Future
+- [x] Fix `--bs-primary-rgb: 255,128,0` → `74,78,199` in `media/css/seafile-ui.css`
+- [x] Edit `info.js` line 110: `'Community Edition'` → `'Tengis Wiki'`
+- [x] Edit `info.js` line 111: URL → `https://redirish.global`, text → `'Tengis Wiki'`
+- [x] Run `npm install` in `frontend/` on VM
+- [x] Run `npm run build` in `frontend/` on VM
+- [x] Run `collectstatic` on VM (Option J — pre-built, not inside docker build)
+- [x] Add `frontend/build/` and `media/assets/` COPY lines to Dockerfile
+- [x] Update `.dockerignore` at build context root `~/tengiswiki/`
+- [x] Rebuild image as `tengis/tengis-wiki:13.0.21-r2`
+- [x] Redeploy via `docker compose down && docker compose up -d`
+- [x] Verify System Info shows "Tengis Wiki" not "Community Edition"
+- [x] Commit `.mo` locale files to `tengis-wiki-fr`
+- [x] Commit Dockerfile + `.dockerignore` to `tengis-wiki-docker`
+- [x] Both repos clean on GitHub at final commits (`4399bc278`, `27b3a9a`)
+- [x] Project documentation consolidated into three canonical docs
+- [x] README written and pushed to `tengis-wiki-docker`
+- [x] VM synced with docs
 
-- [ ] Enable Wiki — deploy SeaDoc (see Appendix A)
-- [ ] Push image to Docker Hub: `docker push tengis/tengis-wiki:13.0.21`
-- [ ] Production VM setup (separate from test VM)
-- [ ] Backup `seafile-server.yml` to version control
-- [ ] Consider SeaDoc rebranding (separate project)
+---
+
+### B.2 Next Steps — Tengis Wiki VM (`192.168.2.111`)
+
+#### Housekeeping (quick wins)
+
+- [ ] **Set Site Title via admin panel** — `http://192.168.2.111/sys/settings/` → change "Site Title" to `Tengis Wiki`. Takes 30 seconds. Only needed if not already done — verify by checking the browser tab when logged in.
+- [ ] **Remove old image from VM** — `docker image rm tengis/tengis-wiki:13.0.21`. Frees 2.39 GB. Safe to do any time; the active image is `13.0.21-r2` and the rollback target is documented in the build plan v1.6 §9.5.
+- [ ] **Delete obsolete documentation files from Mac** — 11 predecessor files listed in the build plan v1.6 §13 changelog (build-plan v1.0–v1.5, frontend-build v1.0, project-guide v1.3–v1.4, deployment-session, rebranding-guide).
+
+#### Infrastructure (required before production use)
+
+- [ ] **Set up HTTPS and a real domain** — currently HTTP-only on port 80, IP-only. Required for any production use. Recommended approach: follow the same pattern as nexus2 (mailcow nginx + ACME) — see Appendix A.5 for the SeaDoc-aware reverse-proxy pattern which will apply here too. Decide whether the Tengis VM joins the mailcow network or runs its own Caddy instance.
+- [ ] **Set up automated backup** — two directories must be backed up regularly:
+  - `/opt/seafile-data/` — all user files (synced file content, wiki content, thumbnails)
+  - `/opt/seafile-mysql/db/` — all database data (users, permissions, file metadata, wiki structure)
+  - `/opt/tengis/.env` — environment variables (JWT key, DB password, admin credentials)
+  - `/opt/tengis/seafile-server.yml` — the compose file (not in git — see Appendix F)
+  - Suggested approach: daily `rsync` or `borgbackup` to an offsite target, with a test restore every 30 days.
+- [ ] **Push image to Docker Hub** — `docker push tengis/tengis-wiki:13.0.21-r2`. Required if deploying Tengis Wiki to other servers without rebuilding. Compressed size is 644 MB (see build plan §2). Mark the repo private if you don't want the image public.
+
+#### Features (when ready)
+
+- [ ] **Enable SeaDoc / Wiki feature** — procedure in Appendix A.3. Prerequisites: HTTPS must be configured first (SeaDoc's WebSocket requires a stable SSL endpoint), and the reverse-proxy routing blocks from Appendix A.5 must be in place.
+- [ ] **Per-customer branding via `custom/`** — logos, colors, and site title can be delivered without rebuilding the image using Seafile's official `seahub-data/custom/` bind-mount mechanism. Full reference in `tengis-wiki-frontend-build-v1_2.md` Appendix A. Implement this before deploying to multiple customers.
+- [ ] **Upstream rebase** — when Seafile releases a new version, follow the upgrade process in build plan v1.6 §14. Key pre-check: verify the `RPCProxy` pattern in `seahub/utils/__init__.py` is still present before running any build.
+
+---
+
+### B.3 Next Steps — Nexus2 (`nexus2.redirish.dev`)
+
+#### Bugs under investigation
+
+- [ ] **Wiki publish returns 400 Bad Request** — see Appendix A.7.2 for diagnosis steps. Next action: open browser DevTools → Network tab → attempt to publish a wiki → capture the exact request payload and response body. Also check `can_publish_wiki = True` in seahub_settings.py or Admin Panel → Roles. **Blocks wiki publishing for all users.**
+- [ ] **Fix nginx `listen ... http2` deprecation warning** — in `/opt/mailcow-dockerized/data/conf/nginx/nexus2.conf` lines 15–16, change:
+  ```nginx
+  # Before
+  listen 443 ssl http2;
+  listen [::]:443 ssl http2;
+
+  # After
+  listen 443 ssl;
+  listen [::]:443 ssl;
+  http2 on;
+  ```
+  Then `docker exec mailcowdockerized-nginx-mailcow-1 nginx -t && docker exec mailcowdockerized-nginx-mailcow-1 nginx -s reload`. Non-blocking warning but worth cleaning up.
+- [ ] **Investigate `webmail.permitly.id` conflicting server name warning** — two nginx server blocks both claim this hostname. Run `docker exec mailcowdockerized-nginx-mailcow-1 grep -rn "webmail.permitly.id" /etc/nginx/` to find the duplicate. If one is in a custom file you wrote, remove that block.
+
+#### Known non-issues (monitor only)
+
+- [x~~] **Markdown import shows "Failed" but succeeds** — documented CE regression in Seafile 13, no fix available yet. Workaround: ignore the error message and refresh the wiki. Track Seafile changelog for a fix in point releases. See Appendix A.7.1.
+- [ ] **Intermittent "Unauthorized" on SeaDoc notification/participant endpoints** — low severity, does not block basic functionality. Monitor frequency. If it becomes regular, audit `JWT_PRIVATE_KEY` consistency across containers and check clock skew. See Appendix A.7.3.
+
+#### Mailcow nginx fragility
+
+- [ ] **Document the `docker network connect` command** — the mailcow nginx container must be on `seafile-net` for SeaDoc routing to work. This connection is lost whenever the nginx container is recreated (upgrades, etc.). Add a post-upgrade runbook note somewhere in your mailcow ops documentation: `docker network connect seafile-net mailcowdockerized-nginx-mailcow-1` followed by nginx reload.
 
 ---
 
@@ -1323,6 +1380,7 @@ Use this as a checklist for the next session.
 | v1.3 | May 2026 | Added Appendix D — full Claude Code analysis log (16 entries), Appendix E — new session handoff note, all CSS/info.js fixes documented |
 | v1.4 | May 2026 | Added repo visibility history note (§1.5); added §5.0.5 VM resource upgrade with LVM disk extension recipe; added Appendix F — pre-custom-image `seafile-server.yml` snapshot, extended `.env` reference, plus two operational techniques (`docker compose config` validation, container path discovery). Content preserved before deletion of the separate 25 May 2026 deployment session log. |
 | v1.5 | May 2026 | Extended Appendix A with operational knowledge extracted from the production nexus2.redirish.dev deployment (stock Seafile 13 + SeaDoc 2.0.9 behind mailcow nginx): A.5 SeaDoc reverse-proxy routing requirements, A.6 SeaDoc operational reference (log file inventory, verification commands, JWT auth), A.7 known SeaDoc issues (markdown-import false error, wiki-publish 400, intermittent JWT unauthorized). All content generalized so it applies to Tengis Wiki when SeaDoc is eventually enabled. |
+| v1.6 | May 2026 | Appendix B fully rewritten — all B.1 items marked complete (the entire build, deploy, and documentation sprint is done), B.2 expanded into a structured next-steps checklist covering both the Tengis Wiki VM and the nexus2 production deployment with every outstanding item tracked to the right appendix section. |
 
 ---
 
